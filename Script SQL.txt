@@ -1,0 +1,137 @@
+/* Dans config.php il faut changer
+
+$host     = "localhost";
+$dbname   = "pastel_wear";
+$username = "root";      // ou autre selon la machine
+$password = "";          // mot de passe MySQL de la machine
+
+
+*/
+
+
+
+
+
+
+
+
+/* ================================
+   1) SUPPRIMER + CRÉER LA BASE
+   ================================ */
+
+DROP DATABASE IF EXISTS pastel_wear;
+
+CREATE DATABASE pastel_wear
+  CHARACTER SET utf8mb4
+  COLLATE utf8mb4_unicode_ci;
+
+USE pastel_wear;
+
+
+/* ================================
+   2) TABLE UTILISATEURS
+   ================================ */
+
+CREATE TABLE users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(100) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    role ENUM('user', 'admin') NOT NULL DEFAULT 'user',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
+/* ================================
+   3) TABLE PRODUITS
+   ================================ */
+
+CREATE TABLE products (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(150) NOT NULL,
+    description TEXT,
+    price DECIMAL(10,2) NOT NULL,
+    image VARCHAR(255),           -- chemin de l'image : ex "img/work-jacket.jpg" ou "work-jacket.jpg"
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
+/* ================================
+   4) TABLE COMMANDES (orders)
+   ================================ */
+
+CREATE TABLE orders (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    total_amount DECIMAL(10,2) NOT NULL,
+    status ENUM('en_attente', 'payee', 'annulee') NOT NULL DEFAULT 'en_attente',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_orders_user
+        FOREIGN KEY (user_id) REFERENCES users(id)
+        ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
+/* ====================================
+   5) TABLE LIGNES DE COMMANDE (items)
+   ==================================== */
+
+CREATE TABLE order_items (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    order_id INT NOT NULL,
+    product_id INT NOT NULL,
+    quantity INT NOT NULL DEFAULT 1,
+    unit_price DECIMAL(10,2) NOT NULL,
+    CONSTRAINT fk_order_items_order
+        FOREIGN KEY (order_id) REFERENCES orders(id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_order_items_product
+        FOREIGN KEY (product_id) REFERENCES products(id)
+        ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
+/* ================================
+   6) DONNÉES DE DÉPART
+   ================================ */
+
+/* --- Compte ADMIN ---
+   Email : admin@admin
+   Mot de passe : Admin123!
+*/
+INSERT INTO users (email, password_hash, role) VALUES
+(
+    'admin@admin',
+    '$2b$12$mUtpgC7RtwYDp/zb2LYd2.iNNKCH/Zdp3sz5tjd17JSS4h99iX//y',
+    'admin'
+);
+
+/* --- Produits de la boutique (4 exemples) --- */
+/* Les images doivent exister dans ton dossier /img
+   soit avec juste le nom (ex: 'work-jacket.jpg'),
+   soit avec le chemin complet (ex: 'img/work-jacket.jpg').
+*/
+INSERT INTO products (name, description, price, image) VALUES
+(
+    'The Work Jacket',
+    '100 % coton, coupe ample pour le confort.',
+    120.00,
+    'work-jacket.jpg'
+),
+(
+    'Ensemble en lin',
+    'Un ensemble en lin frais aux tons pastel.',
+    100.00,
+    'ensemble-lin.jpg'
+),
+(
+    'Short pastel',
+    'Short taille haute, parfait pour l''été.',
+    60.00,
+    'short-pastel.jpg'
+),
+(
+    'Chemise oversize',
+    'Chemise oversize ultra confortable.',
+    80.00,
+    'chemise-oversize.jpg'
+);
