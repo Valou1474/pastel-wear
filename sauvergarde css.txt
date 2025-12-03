@@ -625,26 +625,3 @@ body {
         grid-template-columns: 1fr;
     }
 }
-
-.qty-control {
-    display: flex;
-    align-items: center;
-    gap: .4rem;
-}
-
-.qty-btn {
-    background: #111827;
-    border: none;
-    color: white;
-    padding: 0.2rem 0.5rem;
-    border-radius: .4rem;
-    cursor: pointer;
-    font-size: 1rem;
-}
-
-.qty-number {
-    min-width: 20px;
-    text-align: center;
-    font-weight: bold;
-}
-

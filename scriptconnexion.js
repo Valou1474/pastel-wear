@@ -1,7 +1,9 @@
 document.addEventListener('DOMContentLoaded', () => {
   const container = document.getElementById('container');
-  const registerButton = document.getElementById('register');
-  const loginButton = document.getElementById('login');
+
+  // Nouveaux IDs pour éviter les conflits
+  const registerButton = document.getElementById('switch-register');
+  const loginButton = document.getElementById('switch-login');
 
   if (!container || !registerButton || !loginButton) {
     return;

@@ -26,17 +26,46 @@ if (!$data || empty($data['items']) || !is_array($data['items'])) {
 $userId = (int)$_SESSION['user_id'];
 $items = $data['items'];
 
+// ---------------------------------------------------
+// ETAPE 1 : Vérifier le stock avant de créer la commande
+// ---------------------------------------------------
+
+foreach ($items as $item) {
+    $product_id = intval($item['product_id']);
+    $qty        = intval($item['quantity']);
+
+    $stmt = $pdo->prepare("SELECT stock FROM products WHERE id = ?");
+    $stmt->execute([$product_id]);
+    $product = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$product) {
+        echo json_encode(["success" => false, "message" => "Produit introuvable."]);
+        exit;
+    }
+
+    if ($product['stock'] < $qty) {
+        echo json_encode([
+            "success" => false,
+            "message" => "Stock insuffisant pour le produit ID $product_id."
+        ]);
+        exit;
+    }
+}
+
 try {
     $pdo->beginTransaction();
 
+    // ---------------------------------------------------
+    // ETAPE 2 : Calcul du total
+    // ---------------------------------------------------
     $total = 0;
     $orderItems = [];
 
     $stmtProduct = $pdo->prepare("SELECT id, price FROM products WHERE id = ?");
 
     foreach ($items as $item) {
-        $productId = (int)($item['product_id'] ?? 0);
-        $qty       = (int)($item['quantity'] ?? 0);
+        $productId = intval($item['product_id']);
+        $qty       = intval($item['quantity']);
 
         if ($productId <= 0 || $qty <= 0) {
             continue;
@@ -45,13 +74,11 @@ try {
         $stmtProduct->execute([$productId]);
         $product = $stmtProduct->fetch(PDO::FETCH_ASSOC);
 
-        if (!$product) {
-            continue;
-        }
+        if (!$product) continue;
 
-        $unitPrice = (float)$product['price'];
+        $unitPrice = floatval($product['price']);
         $lineTotal = $unitPrice * $qty;
-        $total    += $lineTotal;
+        $total += $lineTotal;
 
         $orderItems[] = [
             'product_id' => $productId,
@@ -69,18 +96,26 @@ try {
         exit;
     }
 
-    // Insertion dans orders
-    $stmtOrder = $pdo->prepare(
-        "INSERT INTO orders (user_id, total_amount, status) VALUES (?, ?, 'en_attente')"
-    );
+    // ---------------------------------------------------
+    // ETAPE 3 : Création de la commande
+    // ---------------------------------------------------
+
+    $stmtOrder = $pdo->prepare("
+        INSERT INTO orders (user_id, total_amount, status)
+        VALUES (?, ?, 'en_attente')
+    ");
     $stmtOrder->execute([$userId, $total]);
+
     $orderId = $pdo->lastInsertId();
 
-    // Insertion dans order_items
-    $stmtItem = $pdo->prepare(
-        "INSERT INTO order_items (order_id, product_id, quantity, unit_price)
-         VALUES (?, ?, ?, ?)"
-    );
+    // ---------------------------------------------------
+    // ETAPE 4 : Insertion des lignes de commande
+    // ---------------------------------------------------
+
+    $stmtItem = $pdo->prepare("
+        INSERT INTO order_items (order_id, product_id, quantity, unit_price)
+        VALUES (?, ?, ?, ?)
+    ");
 
     foreach ($orderItems as $oi) {
         $stmtItem->execute([
@@ -91,12 +126,26 @@ try {
         ]);
     }
 
+    // ---------------------------------------------------
+    // ETAPE 5 : Déduction du stock
+    // ---------------------------------------------------
+
+    $stmtStock = $pdo->prepare("UPDATE products SET stock = stock - ? WHERE id = ?");
+
+    foreach ($orderItems as $oi) {
+        $stmtStock->execute([
+            $oi['quantity'],
+            $oi['product_id']
+        ]);
+    }
+
     $pdo->commit();
 
     echo json_encode([
-        'success'  => true,
+        'success' => true,
         'order_id' => $orderId
     ]);
+
 } catch (Exception $e) {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();
